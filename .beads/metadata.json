@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "typst_watch",
+  "project_id": "abd7c64f-0412-4753-b788-7b9e69361943"
+}
