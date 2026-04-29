@@ -3,14 +3,16 @@
 
 # typst-watch
 
-`typst-watch` is an Emacs minor mode for Typst projects.  It starts one
-buffer-local `typst watch` process per Typst file and stops that process when
-the buffer dies.
+`typst-watch` is an Emacs minor mode for [Typst](https://typst.app/)
+projects.  It starts one buffer-local `typst watch` process per Typst
+file and stops that process when the buffer dies.
 
-When a major-mode preview keybinding runs, `typst-watch` opens the generated
-PDF in a viewer if it is not already open.  The original preview command is not
-called, so `typst-ts-mode` browser previews are bypassed.  By default it tries
-[zathura](https://pwmt.org/projects/zathura/installation/) first and falls back to [evince](https://flathub.org/en/apps/org.gnome.Evince/).
+When a major-mode preview keybinding runs, `typst-watch` opens the
+generated PDF in a viewer if it is not already open.  The original
+preview command is not called, so `typst-ts-mode` browser previews are
+bypassed.  By default it tries
+[zathura](https://pwmt.org/projects/zathura/installation/) first and
+falls back to [evince](https://flathub.org/en/apps/org.gnome.Evince/).
 
 ## Requirements
 
