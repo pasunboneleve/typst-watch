@@ -27,8 +27,9 @@ This manual is distributed under the MIT License.
 @top typst-watch
 
 typst-watch starts a buffer-local @command{typst watch} process for
-Typst buffers.  Major-mode preview commands open generated PDFs in a
-configurable viewer when needed.
+Typst buffers.  Major-mode preview keybindings open generated PDFs in a
+configurable viewer when needed, without calling the original browser preview
+command.
 
 @menu
 * Installation::
@@ -64,8 +65,9 @@ buffer-local watch process.
 
 When typst-watch-auto-mode is enabled, typst-watch-mode is enabled in
 typst-ts-mode and typst-mode buffers.  Preview commands listed in
-typst-watch-preview-commands open the PDF viewer when needed.  Compile-only
-commands remain owned by the major mode.
+typst-watch-preview-commands are remapped to typst-watch-preview, which opens
+the PDF viewer when needed.  Compile-only commands remain owned by the major
+mode.
 
 @node Configuration
 @chapter Configuration
@@ -85,8 +87,8 @@ Set typst-watch-typst-command when Typst is not on PATH.
 Set typst-watch-start-on-enable to nil to disable automatic watcher startup
 while keeping preview integration.
 
-Set typst-watch-preview-commands to change which major-mode commands open the
-PDF viewer.
+Set typst-watch-preview-commands to change which major-mode preview command
+keybindings open the PDF viewer.
 
 Set typst-watch-output-file-function to customise the output PDF path.
 The function receives the Typst source path and must return the PDF path.

@@ -160,36 +160,31 @@
         (should-not started)
         (typst-watch-mode -1)))))
 
-(ert-deftest typst-watch-preview-advice-is-idempotent-test ()
-  "Installing preview advice twice adds only one advice member."
-  (let ((typst-watch--advised-preview-commands nil))
-    (cl-letf (((symbol-function 'typst-ts-preview) (lambda () 'previewed)))
-      (unwind-protect
-          (progn
-            (typst-watch--install-preview-advice)
-            (typst-watch--install-preview-advice)
-            (let ((count 0))
-              (advice-mapc
-               (lambda (advice _props)
-                 (when (eq advice #'typst-watch--after-preview-command)
-                   (setq count (1+ count))))
-               'typst-ts-preview)
-              (should (= count 1))))
-        (typst-watch--remove-preview-advice)))))
+(ert-deftest typst-watch-mode-map-remaps-preview-commands-test ()
+  "Minor mode map remaps major-mode preview commands to typst-watch."
+  (should (eq (lookup-key typst-watch-mode-map [remap typst-ts-preview])
+              #'typst-watch-preview))
+  (should (eq (lookup-key typst-watch-mode-map [remap typst-ts-mode-preview])
+              #'typst-watch-preview)))
 
-(ert-deftest typst-watch-preview-advice-removal-uses-installed-commands-test ()
-  "Removing preview advice does not depend on the current command setting."
-  (let ((typst-watch-preview-commands '(typst-ts-preview))
-        (typst-watch--advised-preview-commands nil))
-    (cl-letf (((symbol-function 'typst-ts-preview) (lambda () 'previewed)))
-      (unwind-protect
-          (progn
-            (typst-watch--install-preview-advice)
-            (setq typst-watch-preview-commands nil)
-            (typst-watch--remove-preview-advice)
-            (should-not
-             (advice-member-p #'typst-watch--after-preview-command
-                              'typst-ts-preview)))
-        (typst-watch--remove-preview-advice)))))
+(ert-deftest typst-watch-preview-command-customization-rebuilds-map-test ()
+  "Customising preview commands rebuilds the minor mode remap map."
+  (let ((old-commands typst-watch-preview-commands)
+        (old-remaps typst-watch--remapped-preview-commands)
+        (map typst-watch-mode-map))
+    (unwind-protect
+        (progn
+          (define-key typst-watch-mode-map (kbd "C-c ! x") #'ignore)
+          (customize-set-variable 'typst-watch-preview-commands
+                                  '(my-typst-preview))
+          (should (eq typst-watch-mode-map map))
+          (should (eq (lookup-key typst-watch-mode-map [remap my-typst-preview])
+                      #'typst-watch-preview))
+          (should-not (lookup-key typst-watch-mode-map [remap typst-ts-preview]))
+          (should (eq (lookup-key typst-watch-mode-map (kbd "C-c ! x"))
+                      #'ignore)))
+      (define-key typst-watch-mode-map (kbd "C-c ! x") nil)
+      (customize-set-variable 'typst-watch-preview-commands old-commands)
+      (setq typst-watch--remapped-preview-commands old-remaps))))
 
 ;;; typst-watch-tests.el ends here

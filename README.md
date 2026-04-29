@@ -4,9 +4,10 @@
 buffer-local `typst watch` process per Typst file and stops that process when
 the buffer dies.
 
-When a major-mode preview command runs, `typst-watch` opens the generated PDF
-in a viewer if it is not already open.  By default it tries `zathura` first and
-falls back to `evince`.
+When a major-mode preview keybinding runs, `typst-watch` opens the generated
+PDF in a viewer if it is not already open.  The original preview command is not
+called, so `typst-ts-mode` browser previews are bypassed.  By default it tries
+`zathura` first and falls back to `evince`.
 
 ## Requirements
 
@@ -44,8 +45,9 @@ Or enable it per buffer:
 - Closing the Typst buffer stops the buffer-local watch process.
 - `typst-watch-auto-mode` enables `typst-watch-mode` in `typst-ts-mode` and
   `typst-mode` buffers.
-- Major-mode preview commands listed in `typst-watch-preview-commands` open the
-  PDF viewer when needed. Compile-only commands are left to the major mode.
+- Major-mode preview commands listed in `typst-watch-preview-commands` are
+  remapped to `typst-watch-preview`, which opens the PDF viewer when needed.
+  Compile-only commands are left to the major mode.
 
 ## Configuration
 
@@ -73,11 +75,11 @@ Disable automatic watcher startup while keeping preview integration:
 (setq typst-watch-start-on-enable nil)
 ```
 
-Change the preview commands that open the PDF viewer:
+Change the preview commands whose keybindings open the PDF viewer:
 
 ```elisp
 (setq typst-watch-preview-commands
-      '(typst-ts-preview typst-ts-compile-and-preview))
+      '(typst-ts-preview typst-ts-mode-preview))
 ```
 
 Change the output path rule:

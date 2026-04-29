@@ -11,8 +11,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 - Add `typst-watch-mode` for buffer-local `typst watch` processes.
 - Add `typst-watch-auto-mode` for `typst-ts-mode` and `typst-mode` buffers.
-- Add preview-command integration that opens generated PDFs without replacing
-  major-mode compile or preview commands.
+- Add preview-command remapping so major-mode preview keybindings open
+  generated PDFs without running browser preview commands.
 - Add configurable PDF viewer selection with zathura preference and evince
   fallback.
 - Add ERT tests, byte-compilation checks, checkdoc, CI, README, MIT license,

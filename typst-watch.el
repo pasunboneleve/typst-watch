@@ -11,9 +11,9 @@
 ;;; Commentary:
 
 ;; typst-watch keeps a buffer-local `typst watch' process alive while editing
-;; Typst files.  Major-mode preview commands open the generated PDF in a
-;; configurable viewer.  By default, it prefers zathura when available and falls
-;; back to evince.
+;; Typst files.  While `typst-watch-mode' is active, major-mode preview
+;; keybindings open the generated PDF in a configurable viewer.  By default, it
+;; prefers zathura when available and falls back to evince.
 
 ;;; Code:
 
@@ -23,6 +23,27 @@
   "Run Typst watch and preview PDFs from Typst buffers."
   :group 'tools
   :prefix "typst-watch-")
+
+(defvar typst-watch-mode-map (make-sparse-keymap)
+  "Keymap for `typst-watch-mode'.")
+
+(defvar typst-watch--remapped-preview-commands nil
+  "Preview commands currently remapped in `typst-watch-mode-map'.")
+
+(defun typst-watch--populate-mode-map (preview-commands)
+  "Mutate `typst-watch-mode-map' to remap PREVIEW-COMMANDS."
+  (dolist (command typst-watch--remapped-preview-commands)
+    (define-key typst-watch-mode-map (vector 'remap command) nil))
+  (dolist (command preview-commands)
+    (define-key typst-watch-mode-map
+                (vector 'remap command)
+                #'typst-watch-preview))
+  (setq typst-watch--remapped-preview-commands preview-commands))
+
+(defun typst-watch--set-preview-commands (symbol value)
+  "Set SYMBOL to VALUE and rebuild `typst-watch-mode-map'."
+  (set-default symbol value)
+  (typst-watch--populate-mode-map value))
 
 (defcustom typst-watch-typst-command "typst"
   "Path to the Typst executable."
@@ -50,10 +71,13 @@ When nil, `typst-watch' uses zathura when available, then falls back to
 (defcustom typst-watch-preview-commands
   '(typst-ts-preview
     typst-ts-compile-and-preview
+    typst-ts-mode-preview
+    typst-ts-mode-compile-and-preview
     typst-preview
     typst-compile-and-preview)
-  "Major-mode preview commands after which typst-watch opens the PDF viewer."
+  "Major-mode preview commands remapped to `typst-watch-preview'."
   :type '(repeat symbol)
+  :set #'typst-watch--set-preview-commands
   :group 'typst-watch)
 
 (defcustom typst-watch-detect-existing-viewer t
@@ -80,8 +104,7 @@ When nil, `typst-watch' uses zathura when available, then falls back to
 (defvar-local typst-watch--viewer-output-file nil
   "PDF file currently associated with `typst-watch--viewer-process'.")
 
-(defvar typst-watch--advised-preview-commands nil
-  "Preview commands that currently have typst-watch advice installed.")
+(typst-watch--populate-mode-map typst-watch-preview-commands)
 
 (defun typst-watch-default-output-file (source-file)
   "Return the default PDF path for SOURCE-FILE."
@@ -260,26 +283,11 @@ If a live viewer process already shows this PDF, reuse it."
         (message "Opened Typst PDF with %s: %s" viewer output-file)))
     typst-watch--viewer-process))
 
-(defun typst-watch--after-preview-command (&rest _args)
-  "Open the viewer after a major-mode preview command when appropriate."
-  (when (and buffer-file-name
-             (or (derived-mode-p 'typst-ts-mode)
-                 (derived-mode-p 'typst-mode)))
-    (typst-watch-open-viewer)))
-
-(defun typst-watch--install-preview-advice ()
-  "Install viewer advice for configured preview commands that are defined."
-  (dolist (command typst-watch-preview-commands)
-    (when (fboundp command)
-      (advice-add command :after #'typst-watch--after-preview-command)
-      (cl-pushnew command typst-watch--advised-preview-commands))))
-
-(defun typst-watch--remove-preview-advice ()
-  "Remove viewer advice from configured preview commands."
-  (dolist (command typst-watch--advised-preview-commands)
-    (when (fboundp command)
-      (advice-remove command #'typst-watch--after-preview-command)))
-  (setq typst-watch--advised-preview-commands nil))
+;;;###autoload
+(defun typst-watch-preview ()
+  "Open the current Typst PDF output in the configured viewer."
+  (interactive)
+  (typst-watch-open-viewer))
 
 ;;;###autoload
 (define-minor-mode typst-watch-mode
@@ -301,17 +309,9 @@ If a live viewer process already shows this PDF, reuse it."
   (if typst-watch-auto-mode
       (progn
         (add-hook 'typst-ts-mode-hook #'typst-watch-mode)
-        (add-hook 'typst-mode-hook #'typst-watch-mode)
-        (typst-watch--install-preview-advice)
-        (with-eval-after-load 'typst-ts-mode
-          (when typst-watch-auto-mode
-            (typst-watch--install-preview-advice)))
-        (with-eval-after-load 'typst-mode
-          (when typst-watch-auto-mode
-            (typst-watch--install-preview-advice))))
+        (add-hook 'typst-mode-hook #'typst-watch-mode))
     (remove-hook 'typst-ts-mode-hook #'typst-watch-mode)
-    (remove-hook 'typst-mode-hook #'typst-watch-mode)
-    (typst-watch--remove-preview-advice)))
+    (remove-hook 'typst-mode-hook #'typst-watch-mode)))
 
 (provide 'typst-watch)
 ;;; typst-watch.el ends here
