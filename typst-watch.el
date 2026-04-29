@@ -11,9 +11,9 @@
 ;;; Commentary:
 
 ;; typst-watch keeps a buffer-local `typst watch' process alive while editing
-;; Typst files.  It also provides compile and preview commands that open the
-;; generated PDF in a configurable viewer.  By default, it prefers zathura when
-;; available and falls back to evince.
+;; Typst files.  Major-mode preview commands open the generated PDF in a
+;; configurable viewer.  By default, it prefers zathura when available and falls
+;; back to evince.
 
 ;;; Code:
 
@@ -42,8 +42,22 @@ When nil, `typst-watch' uses zathura when available, then falls back to
   :type 'string
   :group 'typst-watch)
 
-(defcustom typst-watch-open-viewer-after-compile t
-  "When non-nil, open the PDF viewer after compile commands."
+(defcustom typst-watch-start-on-enable t
+  "When non-nil, start `typst watch' when `typst-watch-mode' is enabled."
+  :type 'boolean
+  :group 'typst-watch)
+
+(defcustom typst-watch-preview-commands
+  '(typst-ts-preview
+    typst-ts-compile-and-preview
+    typst-preview
+    typst-compile-and-preview)
+  "Major-mode preview commands after which typst-watch opens the PDF viewer."
+  :type '(repeat symbol)
+  :group 'typst-watch)
+
+(defcustom typst-watch-detect-existing-viewer t
+  "When non-nil, detect external PDF viewers already showing the output file."
   :type 'boolean
   :group 'typst-watch)
 
@@ -66,18 +80,8 @@ When nil, `typst-watch' uses zathura when available, then falls back to
 (defvar-local typst-watch--viewer-output-file nil
   "PDF file currently associated with `typst-watch--viewer-process'.")
 
-(defconst typst-watch--typst-ts-commands
-  '(typst-ts-compile typst-ts-preview typst-ts-compile-and-preview)
-  "Typst-ts commands that should open the PDF viewer after running.")
-
-(defvar typst-watch-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c ! w") #'typst-watch-mode)
-    (define-key map (kbd "C-c ! c") #'typst-watch-compile)
-    (define-key map (kbd "C-c ! p") #'typst-watch-preview)
-    map)
-  "Keymap for `typst-watch-mode'.")
-
+(defvar typst-watch--advised-preview-commands nil
+  "Preview commands that currently have typst-watch advice installed.")
 
 (defun typst-watch-default-output-file (source-file)
   "Return the default PDF path for SOURCE-FILE."
@@ -126,6 +130,59 @@ When nil, `typst-watch' uses zathura when available, then falls back to
        (string= (file-truename typst-watch--viewer-output-file)
                 (file-truename output-file))))
 
+(defun typst-watch--process-args (pid)
+  "Return command-line arguments for PID, or nil when unavailable."
+  (let ((args (cdr (assq 'args (process-attributes pid)))))
+    (cond
+     ((stringp args) (split-string-and-unquote args))
+     ((listp args) args)
+     (t nil))))
+
+(defun typst-watch--arg-matches-file-p (arg output-file)
+  "Return non-nil when ARG names OUTPUT-FILE."
+  (and (stringp arg)
+       (let ((arg-truename (ignore-errors (file-truename arg)))
+             (output-truename (file-truename output-file)))
+         (or (string= arg output-file)
+             (and arg-truename
+                  (string= arg-truename output-truename))))))
+
+(defun typst-watch--args-reference-file-p (args output-file)
+  "Return non-nil when ARGS reference OUTPUT-FILE."
+  (cl-some
+   (lambda (arg)
+     (typst-watch--arg-matches-file-p arg output-file))
+   args))
+
+(defun typst-watch--viewer-program-p (program)
+  "Return non-nil when PROGRAM names a configured PDF viewer."
+  (let ((program-name (and (stringp program)
+                           (file-name-nondirectory program))))
+    (and program-name
+         (member program-name
+                 (mapcar #'file-name-nondirectory
+                         (typst-watch--viewer-candidates))))))
+
+(defun typst-watch--viewer-args-reference-file-p (args output-file)
+  "Return non-nil when ARGS are a PDF viewer command for OUTPUT-FILE."
+  (and (typst-watch--viewer-program-p (car args))
+       (typst-watch--args-reference-file-p (cdr args) output-file)))
+
+(defun typst-watch--external-viewer-p (output-file)
+  "Return non-nil when an external viewer already references OUTPUT-FILE."
+  (and typst-watch-detect-existing-viewer
+       (cl-some
+        (lambda (pid)
+          (typst-watch--viewer-args-reference-file-p
+           (typst-watch--process-args pid)
+           output-file))
+        (list-system-processes))))
+
+(defun typst-watch--viewer-running-p (output-file)
+  "Return non-nil when OUTPUT-FILE already has a known live viewer."
+  (or (typst-watch--same-viewer-p output-file)
+      (typst-watch--external-viewer-p output-file)))
+
 (defun typst-watch--truncate-current-buffer ()
   "Trim the current process buffer to `typst-watch-process-buffer-max-size'."
   (when (and (natnump typst-watch-process-buffer-max-size)
@@ -157,10 +214,8 @@ When nil, `typst-watch' uses zathura when available, then falls back to
    :filter #'typst-watch--process-filter
    :noquery t))
 
-;;;###autoload
 (defun typst-watch-start ()
   "Start `typst watch' for the current Typst buffer."
-  (interactive)
   (let* ((source-file (typst-watch--source-file))
          (output-file (typst-watch--output-file source-file))
          (process-buffer (get-buffer-create
@@ -176,28 +231,24 @@ When nil, `typst-watch' uses zathura when available, then falls back to
     (message "Started typst watch: %s" output-file)
     typst-watch--watch-process))
 
-;;;###autoload
 (defun typst-watch-stop ()
   "Stop the buffer-local `typst watch' process."
-  (interactive)
   (when (process-live-p typst-watch--watch-process)
     (delete-process typst-watch--watch-process)
     (message "Stopped typst watch"))
   (setq typst-watch--watch-process nil))
 
-;;;###autoload
 (defun typst-watch-open-viewer ()
   "Open the current buffer's PDF output in the configured viewer.
-If typst-watch already started a live viewer process for this PDF, reuse it."
-  (interactive)
+If a live viewer process already shows this PDF, reuse it."
   (let* ((source-file (typst-watch--source-file))
          (output-file (typst-watch--output-file source-file))
          (process-buffer (get-buffer-create
                           (typst-watch--process-buffer-name "viewer" source-file))))
     (unless (file-exists-p output-file)
       (user-error "PDF output does not exist: %s" output-file))
-    (let ((viewer (typst-watch--select-viewer)))
-      (unless (typst-watch--same-viewer-p output-file)
+    (unless (typst-watch--viewer-running-p output-file)
+      (let ((viewer (typst-watch--select-viewer)))
         (when (process-live-p typst-watch--viewer-process)
           (delete-process typst-watch--viewer-process))
         (setq typst-watch--viewer-process
@@ -209,59 +260,26 @@ If typst-watch already started a live viewer process for this PDF, reuse it."
         (message "Opened Typst PDF with %s: %s" viewer output-file)))
     typst-watch--viewer-process))
 
-;;;###autoload
-(defun typst-watch-compile ()
-  "Compile the current Typst file to PDF."
-  (interactive)
-  (let* ((source-file (typst-watch--source-file))
-         (output-file (typst-watch--output-file source-file))
-         (process-buffer (get-buffer-create
-                          (typst-watch--process-buffer-name "compile" source-file))))
-    (typst-watch--executable-or-error typst-watch-typst-command "Typst")
-    (with-current-buffer process-buffer
-      (erase-buffer))
-    (let ((exit-code (call-process typst-watch-typst-command
-                                   nil process-buffer nil
-                                   "compile" source-file output-file)))
-      (unless (eq 0 exit-code)
-        (user-error "Typst compile failed.  See %s" (buffer-name process-buffer)))
-      (message "Compiled Typst PDF: %s" output-file)
-      (when typst-watch-open-viewer-after-compile
-        (typst-watch-open-viewer))
-      output-file)))
-
-;;;###autoload
-(defun typst-watch-preview ()
-  "Open the current Typst PDF output in a viewer."
-  (interactive)
-  (typst-watch-open-viewer))
-
-;;;###autoload
-(defun typst-watch-compile-and-preview ()
-  "Compile the current Typst file and open the generated PDF."
-  (interactive)
-  (let ((typst-watch-open-viewer-after-compile t))
-    (typst-watch-compile)))
-
-(defun typst-watch--after-typst-ts-command (&rest _args)
-  "Open the viewer after a typst-ts command when appropriate."
-  (when (and typst-watch-open-viewer-after-compile
-             buffer-file-name
+(defun typst-watch--after-preview-command (&rest _args)
+  "Open the viewer after a major-mode preview command when appropriate."
+  (when (and buffer-file-name
              (or (derived-mode-p 'typst-ts-mode)
                  (derived-mode-p 'typst-mode)))
     (typst-watch-open-viewer)))
 
-(defun typst-watch--install-typst-ts-advice ()
-  "Install viewer advice for typst-ts commands that are already defined."
-  (dolist (command typst-watch--typst-ts-commands)
+(defun typst-watch--install-preview-advice ()
+  "Install viewer advice for configured preview commands that are defined."
+  (dolist (command typst-watch-preview-commands)
     (when (fboundp command)
-      (advice-add command :after #'typst-watch--after-typst-ts-command))))
+      (advice-add command :after #'typst-watch--after-preview-command)
+      (cl-pushnew command typst-watch--advised-preview-commands))))
 
-(defun typst-watch--remove-typst-ts-advice ()
-  "Remove viewer advice from typst-ts commands."
-  (dolist (command typst-watch--typst-ts-commands)
+(defun typst-watch--remove-preview-advice ()
+  "Remove viewer advice from configured preview commands."
+  (dolist (command typst-watch--advised-preview-commands)
     (when (fboundp command)
-      (advice-remove command #'typst-watch--after-typst-ts-command))))
+      (advice-remove command #'typst-watch--after-preview-command)))
+  (setq typst-watch--advised-preview-commands nil))
 
 ;;;###autoload
 (define-minor-mode typst-watch-mode
@@ -269,7 +287,8 @@ If typst-watch already started a live viewer process for this PDF, reuse it."
   :lighter " TypstWatch"
   (if typst-watch-mode
       (progn
-        (typst-watch-start)
+        (when typst-watch-start-on-enable
+          (typst-watch-start))
         (add-hook 'kill-buffer-hook #'typst-watch-stop nil t))
     (remove-hook 'kill-buffer-hook #'typst-watch-stop t)
     (typst-watch-stop)))
@@ -283,13 +302,16 @@ If typst-watch already started a live viewer process for this PDF, reuse it."
       (progn
         (add-hook 'typst-ts-mode-hook #'typst-watch-mode)
         (add-hook 'typst-mode-hook #'typst-watch-mode)
-        (typst-watch--install-typst-ts-advice)
+        (typst-watch--install-preview-advice)
         (with-eval-after-load 'typst-ts-mode
           (when typst-watch-auto-mode
-            (typst-watch--install-typst-ts-advice))))
+            (typst-watch--install-preview-advice)))
+        (with-eval-after-load 'typst-mode
+          (when typst-watch-auto-mode
+            (typst-watch--install-preview-advice))))
     (remove-hook 'typst-ts-mode-hook #'typst-watch-mode)
     (remove-hook 'typst-mode-hook #'typst-watch-mode)
-    (typst-watch--remove-typst-ts-advice)))
+    (typst-watch--remove-preview-advice)))
 
 (provide 'typst-watch)
 ;;; typst-watch.el ends here

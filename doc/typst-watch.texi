@@ -27,7 +27,8 @@ This manual is distributed under the MIT License.
 @top typst-watch
 
 typst-watch starts a buffer-local @command{typst watch} process for
-Typst buffers and opens generated PDFs in a configurable viewer.
+Typst buffers.  Major-mode preview commands open generated PDFs in a
+configurable viewer when needed.
 
 @menu
 * Installation::
@@ -57,31 +58,14 @@ Enable automatic watching for Typst buffers:
 Use @kbd{M-x typst-watch-mode} to start or stop a buffer-local
 @command{typst watch} process.
 
-The main commands are:
+When typst-watch-mode is enabled, it starts @command{typst watch} by default.
+When the mode is disabled, or when the Typst buffer dies, it stops the
+buffer-local watch process.
 
-@table @asis
-@item typst-watch-start
-Start @command{typst watch} for the current file.
-
-@item typst-watch-stop
-Stop the buffer-local watch process.
-
-@item typst-watch-compile
-Run @command{typst compile} and open the output PDF.
-
-@item typst-watch-preview
-Open the current output PDF.
-
-@item typst-watch-compile-and-preview
-Compile the current file and open the output PDF.
-@end table
-
-typst-watch-mode binds @kbd{C-c ! w} to toggle the watcher,
-@kbd{C-c ! c} to compile, and @kbd{C-c ! p} to preview.
-
-When typst-watch-auto-mode is enabled, typst-ts-compile,
-typst-ts-preview, and typst-ts-compile-and-preview open the PDF
-viewer after they run, when those commands are available.
+When typst-watch-auto-mode is enabled, typst-watch-mode is enabled in
+typst-ts-mode and typst-mode buffers.  Preview commands listed in
+typst-watch-preview-commands open the PDF viewer when needed.  Compile-only
+commands remain owned by the major mode.
 
 @node Configuration
 @chapter Configuration
@@ -97,6 +81,12 @@ and then @command{evince}.  Change the fallback with
 typst-watch-fallback-pdf-viewer.
 
 Set typst-watch-typst-command when Typst is not on PATH.
+
+Set typst-watch-start-on-enable to nil to disable automatic watcher startup
+while keeping preview integration.
+
+Set typst-watch-preview-commands to change which major-mode commands open the
+PDF viewer.
 
 Set typst-watch-output-file-function to customise the output PDF path.
 The function receives the Typst source path and must return the PDF path.

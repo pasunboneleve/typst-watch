@@ -16,7 +16,8 @@ typst-watch
 ***********
 
 typst-watch starts a buffer-local ‘typst watch’ process for Typst
-buffers and opens generated PDFs in a configurable viewer.
+buffers.  Major-mode preview commands open generated PDFs in a
+configurable viewer when needed.
 
 * Menu:
 
@@ -48,29 +49,14 @@ File: typst-watch.info,  Node: Usage,  Next: Configuration,  Prev: Installation,
 Use ‘M-x typst-watch-mode’ to start or stop a buffer-local ‘typst watch’
 process.
 
-   The main commands are:
+   When typst-watch-mode is enabled, it starts ‘typst watch’ by default.
+When the mode is disabled, or when the Typst buffer dies, it stops the
+buffer-local watch process.
 
-typst-watch-start
-     Start ‘typst watch’ for the current file.
-
-typst-watch-stop
-     Stop the buffer-local watch process.
-
-typst-watch-compile
-     Run ‘typst compile’ and open the output PDF.
-
-typst-watch-preview
-     Open the current output PDF.
-
-typst-watch-compile-and-preview
-     Compile the current file and open the output PDF.
-
-   typst-watch-mode binds ‘C-c ! w’ to toggle the watcher, ‘C-c ! c’ to
-compile, and ‘C-c ! p’ to preview.
-
-   When typst-watch-auto-mode is enabled, typst-ts-compile,
-typst-ts-preview, and typst-ts-compile-and-preview open the PDF viewer
-after they run, when those commands are available.
+   When typst-watch-auto-mode is enabled, typst-watch-mode is enabled in
+typst-ts-mode and typst-mode buffers.  Preview commands listed in
+typst-watch-preview-commands open the PDF viewer when needed.
+Compile-only commands remain owned by the major mode.
 
 
 File: typst-watch.info,  Node: Configuration,  Next: Development,  Prev: Usage,  Up: Top
@@ -87,6 +73,12 @@ then ‘evince’.  Change the fallback with
 typst-watch-fallback-pdf-viewer.
 
    Set typst-watch-typst-command when Typst is not on PATH.
+
+   Set typst-watch-start-on-enable to nil to disable automatic watcher
+startup while keeping preview integration.
+
+   Set typst-watch-preview-commands to change which major-mode commands
+open the PDF viewer.
 
    Set typst-watch-output-file-function to customise the output PDF
 path.  The function receives the Typst source path and must return the
@@ -108,10 +100,10 @@ tests, runs checkdoc, and builds this info manual.
 
 Tag Table:
 Node: Top292
-Node: Installation589
-Node: Usage868
-Node: Configuration1747
-Node: Development2330
+Node: Installation626
+Node: Usage905
+Node: Configuration1539
+Node: Development2331
 
 End Tag Table
 

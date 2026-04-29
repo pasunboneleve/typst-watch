@@ -4,8 +4,9 @@
 buffer-local `typst watch` process per Typst file and stops that process when
 the buffer dies.
 
-It also provides compile and preview commands that open the generated PDF in a
-viewer.  By default it tries `zathura` first and falls back to `evince`.
+When a major-mode preview command runs, `typst-watch` opens the generated PDF
+in a viewer if it is not already open.  By default it tries `zathura` first and
+falls back to `evince`.
 
 ## Requirements
 
@@ -36,21 +37,15 @@ Or enable it per buffer:
 (add-hook 'typst-mode-hook #'typst-watch-mode)
 ```
 
-## Commands
+## Behaviour
 
-- `M-x typst-watch-mode`: start or stop `typst watch` for the current buffer.
-- `M-x typst-watch-start`: start `typst watch`.
-- `M-x typst-watch-stop`: stop the buffer-local watch process.
-- `M-x typst-watch-compile`: run `typst compile` and open the PDF.
-- `M-x typst-watch-preview`: open the current PDF output.
-- `M-x typst-watch-compile-and-preview`: compile and open the PDF.
-
-`typst-watch-mode` binds `C-c ! w` to toggle the watcher, `C-c ! c` to
-compile, and `C-c ! p` to preview.
-
-When `typst-watch-auto-mode` is enabled, `typst-ts-compile`,
-`typst-ts-preview`, and `typst-ts-compile-and-preview` also open the PDF viewer
-after they run, when those commands are defined.
+- `typst-watch-mode` starts `typst watch` when enabled and stops it when
+  disabled.
+- Closing the Typst buffer stops the buffer-local watch process.
+- `typst-watch-auto-mode` enables `typst-watch-mode` in `typst-ts-mode` and
+  `typst-mode` buffers.
+- Major-mode preview commands listed in `typst-watch-preview-commands` open the
+  PDF viewer when needed. Compile-only commands are left to the major mode.
 
 ## Configuration
 
@@ -70,6 +65,19 @@ Use a different Typst executable:
 
 ```elisp
 (setq typst-watch-typst-command "/usr/local/bin/typst")
+```
+
+Disable automatic watcher startup while keeping preview integration:
+
+```elisp
+(setq typst-watch-start-on-enable nil)
+```
+
+Change the preview commands that open the PDF viewer:
+
+```elisp
+(setq typst-watch-preview-commands
+      '(typst-ts-preview typst-ts-compile-and-preview))
 ```
 
 Change the output path rule:

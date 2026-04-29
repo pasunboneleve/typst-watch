@@ -90,6 +90,44 @@
                  (ert-fail "viewer should be reused"))))
       (should (eq (typst-watch-open-viewer) 'viewer-process)))))
 
+(ert-deftest typst-watch-open-viewer-reuses-external-process-test ()
+  "Opening a viewer ignores PDFs already referenced by an external process."
+  (with-temp-buffer
+    (setq-local buffer-file-name "/tmp/main.typ")
+    (let ((typst-watch-detect-existing-viewer t))
+      (cl-letf (((symbol-function 'file-exists-p)
+                 (lambda (file) (equal file "/tmp/main.pdf")))
+                ((symbol-function 'file-truename) #'identity)
+                ((symbol-function 'list-system-processes)
+                 (lambda () '(42)))
+                ((symbol-function 'typst-watch--process-args)
+                 (lambda (_pid) '("zathura" "/tmp/main.pdf")))
+                ((symbol-function 'typst-watch--select-viewer)
+                 (lambda ()
+                   (ert-fail "viewer selection should not run")))
+                ((symbol-function 'typst-watch--start-process)
+                 (lambda (&rest _args)
+                   (ert-fail "viewer should not start"))))
+        (should-not (typst-watch-open-viewer))))))
+
+(ert-deftest typst-watch-external-viewer-ignores-non-viewer-processes-test ()
+  "External viewer detection ignores non-viewer commands that mention the PDF."
+  (let ((typst-watch-detect-existing-viewer t))
+    (cl-letf (((symbol-function 'file-truename) #'identity)
+              ((symbol-function 'list-system-processes)
+               (lambda () '(42)))
+              ((symbol-function 'typst-watch--process-args)
+               (lambda (_pid) '("typst" "watch" "/tmp/main.typ" "/tmp/main.pdf"))))
+      (should-not (typst-watch--external-viewer-p "/tmp/main.pdf")))))
+
+(ert-deftest typst-watch-process-args-splits-string-test ()
+  "Process args handles platforms that report args as one string."
+  (cl-letf (((symbol-function 'process-attributes)
+             (lambda (_pid)
+               '((args . "zathura \"/tmp/main file.pdf\"")))))
+    (should (equal (typst-watch--process-args 42)
+                   '("zathura" "/tmp/main file.pdf")))))
+
 (ert-deftest typst-watch-open-viewer-reports-missing-pdf-first-test ()
   "Opening a viewer reports a missing PDF before checking viewer executables."
   (with-temp-buffer
@@ -108,58 +146,50 @@
       (typst-watch--truncate-current-buffer)
       (should (equal (buffer-string) "56789")))))
 
-(ert-deftest typst-watch-compile-fails-loudly-test ()
-  "Compile reports a user-facing error when Typst exits non-zero."
+(ert-deftest typst-watch-mode-start-on-enable-is-configurable-test ()
+  "Minor mode honours `typst-watch-start-on-enable'."
   (with-temp-buffer
     (setq-local buffer-file-name "/tmp/main.typ")
-    (let ((typst-watch-typst-command "typst"))
-      (cl-letf (((symbol-function 'executable-find)
-                 (lambda (program) (and (equal program "typst") "/usr/bin/typst")))
-                ((symbol-function 'call-process)
-                 (lambda (&rest _args) 1)))
-        (should-error (typst-watch-compile) :type 'user-error)))))
+    (let ((typst-watch-start-on-enable nil)
+          started)
+      (cl-letf (((symbol-function 'typst-watch-start)
+                 (lambda () (setq started t)))
+                ((symbol-function 'typst-watch-stop)
+                 (lambda () nil)))
+        (typst-watch-mode 1)
+        (should-not started)
+        (typst-watch-mode -1)))))
 
-(ert-deftest typst-watch-compile-signal-fails-loudly-test ()
-  "Compile reports a user-facing error when Typst exits from a signal."
-  (with-temp-buffer
-    (setq-local buffer-file-name "/tmp/main.typ")
-    (let ((typst-watch-typst-command "typst"))
-      (cl-letf (((symbol-function 'executable-find)
-                 (lambda (program) (and (equal program "typst") "/usr/bin/typst")))
-                ((symbol-function 'call-process)
-                 (lambda (&rest _args) "terminated by signal")))
-        (should-error (typst-watch-compile) :type 'user-error)))))
+(ert-deftest typst-watch-preview-advice-is-idempotent-test ()
+  "Installing preview advice twice adds only one advice member."
+  (let ((typst-watch--advised-preview-commands nil))
+    (cl-letf (((symbol-function 'typst-ts-preview) (lambda () 'previewed)))
+      (unwind-protect
+          (progn
+            (typst-watch--install-preview-advice)
+            (typst-watch--install-preview-advice)
+            (let ((count 0))
+              (advice-mapc
+               (lambda (advice _props)
+                 (when (eq advice #'typst-watch--after-preview-command)
+                   (setq count (1+ count))))
+               'typst-ts-preview)
+              (should (= count 1))))
+        (typst-watch--remove-preview-advice)))))
 
-(ert-deftest typst-watch-compile-opens-viewer-test ()
-  "Successful compile opens the viewer when configured to do so."
-  (with-temp-buffer
-    (setq-local buffer-file-name "/tmp/main.typ")
-    (let ((typst-watch-typst-command "typst")
-          (typst-watch-open-viewer-after-compile t)
-          opened-viewer)
-      (cl-letf (((symbol-function 'executable-find)
-                 (lambda (program) (and (equal program "typst") "/usr/bin/typst")))
-                ((symbol-function 'call-process)
-                 (lambda (&rest _args) 0))
-                ((symbol-function 'typst-watch-open-viewer)
-                 (lambda () (setq opened-viewer t))))
-        (should (equal (typst-watch-compile) "/tmp/main.pdf"))
-        (should opened-viewer)))))
-
-(ert-deftest typst-watch-typst-ts-advice-is-idempotent-test ()
-  "Installing typst-ts advice twice adds only one advice member."
-  (cl-letf (((symbol-function 'typst-ts-compile) (lambda () 'compiled)))
-    (unwind-protect
-        (progn
-          (typst-watch--install-typst-ts-advice)
-          (typst-watch--install-typst-ts-advice)
-          (let ((count 0))
-            (advice-mapc
-             (lambda (advice _props)
-               (when (eq advice #'typst-watch--after-typst-ts-command)
-                 (setq count (1+ count))))
-             'typst-ts-compile)
-            (should (= count 1))))
-      (typst-watch--remove-typst-ts-advice))))
+(ert-deftest typst-watch-preview-advice-removal-uses-installed-commands-test ()
+  "Removing preview advice does not depend on the current command setting."
+  (let ((typst-watch-preview-commands '(typst-ts-preview))
+        (typst-watch--advised-preview-commands nil))
+    (cl-letf (((symbol-function 'typst-ts-preview) (lambda () 'previewed)))
+      (unwind-protect
+          (progn
+            (typst-watch--install-preview-advice)
+            (setq typst-watch-preview-commands nil)
+            (typst-watch--remove-preview-advice)
+            (should-not
+             (advice-member-p #'typst-watch--after-preview-command
+                              'typst-ts-preview)))
+        (typst-watch--remove-preview-advice)))))
 
 ;;; typst-watch-tests.el ends here
