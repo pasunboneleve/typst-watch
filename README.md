@@ -10,7 +10,7 @@ the buffer dies.
 When a major-mode preview keybinding runs, `typst-watch` opens the generated
 PDF in a viewer if it is not already open.  The original preview command is not
 called, so `typst-ts-mode` browser previews are bypassed.  By default it tries
-`zathura` first and falls back to `evince`.
+[zathura](https://pwmt.org/projects/zathura/installation/) first and falls back to [evince](https://flathub.org/en/apps/org.gnome.Evince/).
 
 ## Requirements
 
