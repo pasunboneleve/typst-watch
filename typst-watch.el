@@ -7,6 +7,8 @@
 ;; URL: https://github.com/pasunboneleve/typst-watch
 ;; SPDX-License-Identifier: MIT
 ;; Version: 0.1.0
+;; Assisted-by: Codex:gpt-5.5
+;; Assisted-by: Roborev:gemini-3.1-pro-preview
 
 ;;; Commentary:
 
