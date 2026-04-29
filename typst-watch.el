@@ -93,7 +93,7 @@ When nil, `typst-watch' uses zathura when available, then falls back to
   :group 'typst-watch)
 
 (defcustom typst-watch-process-buffer-max-size 65536
-  "Maximum characters kept in typst-watch process buffers."
+  "Maximum characters kept in `typst-watch' process buffers."
   :type 'natnum
   :group 'typst-watch)
 
@@ -101,7 +101,7 @@ When nil, `typst-watch' uses zathura when available, then falls back to
   "Buffer-local `typst watch' process.")
 
 (defvar-local typst-watch--viewer-process nil
-  "Buffer-local PDF viewer process started by typst-watch.")
+  "Buffer-local PDF viewer process started by `typst-watch'.")
 
 (defvar-local typst-watch--viewer-output-file nil
   "PDF file currently associated with `typst-watch--viewer-process'.")
