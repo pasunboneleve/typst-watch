@@ -6,3 +6,6 @@
 
 # Emacs build artifacts
 *.elc
+
+# Codex droppings
+**/.codex
