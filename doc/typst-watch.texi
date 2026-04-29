@@ -1,0 +1,116 @@
+\input texinfo
+@setfilename typst-watch.info
+@settitle typst-watch
+@documentencoding UTF-8
+
+@copying
+Copyright @copyright{} 2026 Daniel Vianna.
+
+This manual is distributed under the MIT License.
+@end copying
+
+@dircategory Emacs
+@direntry
+* typst-watch: (typst-watch). Run Typst watch from Emacs.
+@end direntry
+
+@titlepage
+@title typst-watch
+@subtitle Run Typst watch from Emacs
+@page
+@insertcopying
+@end titlepage
+
+@contents
+
+@node Top
+@top typst-watch
+
+typst-watch starts a buffer-local @command{typst watch} process for
+Typst buffers and opens generated PDFs in a configurable viewer.
+
+@menu
+* Installation::
+* Usage::
+* Configuration::
+* Development::
+@end menu
+
+@node Installation
+@chapter Installation
+
+Place typst-watch.el on your load-path, then load it:
+
+@lisp
+(require 'typst-watch)
+@end lisp
+
+Enable automatic watching for Typst buffers:
+
+@lisp
+(typst-watch-auto-mode 1)
+@end lisp
+
+@node Usage
+@chapter Usage
+
+Use @kbd{M-x typst-watch-mode} to start or stop a buffer-local
+@command{typst watch} process.
+
+The main commands are:
+
+@table @asis
+@item typst-watch-start
+Start @command{typst watch} for the current file.
+
+@item typst-watch-stop
+Stop the buffer-local watch process.
+
+@item typst-watch-compile
+Run @command{typst compile} and open the output PDF.
+
+@item typst-watch-preview
+Open the current output PDF.
+
+@item typst-watch-compile-and-preview
+Compile the current file and open the output PDF.
+@end table
+
+typst-watch-mode binds @kbd{C-c ! w} to toggle the watcher,
+@kbd{C-c ! c} to compile, and @kbd{C-c ! p} to preview.
+
+When typst-watch-auto-mode is enabled, typst-ts-compile,
+typst-ts-preview, and typst-ts-compile-and-preview open the PDF
+viewer after they run, when those commands are available.
+
+@node Configuration
+@chapter Configuration
+
+Set typst-watch-pdf-viewer to force a viewer:
+
+@lisp
+(setq typst-watch-pdf-viewer "zathura")
+@end lisp
+
+When typst-watch-pdf-viewer is nil, typst-watch tries @command{zathura}
+and then @command{evince}.  Change the fallback with
+typst-watch-fallback-pdf-viewer.
+
+Set typst-watch-typst-command when Typst is not on PATH.
+
+Set typst-watch-output-file-function to customise the output PDF path.
+The function receives the Typst source path and must return the PDF path.
+
+@node Development
+@chapter Development
+
+Run the full local gate:
+
+@example
+make all
+@end example
+
+This byte-compiles the package with warnings as errors, runs the ERT tests,
+runs checkdoc, and builds this info manual.
+
+@bye

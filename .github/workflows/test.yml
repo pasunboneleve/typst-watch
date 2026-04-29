@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        emacs_version:
+          - 27.2
+          - 28.2
+          - 29.4
+          - 30.2
+          - snapshot
+
+    steps:
+      - name: Checkout code
+        uses: "actions/checkout@v4"
+
+      - name: Install Emacs
+        uses: "purcell/setup-emacs@master"
+        with:
+          version: ${{ matrix.emacs_version }}
+
+      - name: Install Texinfo
+        run: sudo apt-get update && sudo apt-get install -y texinfo
+
+      - name: Run checks
+        run: make all
