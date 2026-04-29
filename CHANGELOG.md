@@ -5,6 +5,8 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
 ## [0.1.0] - 2026-04-29
 
 ### Added
@@ -17,3 +19,6 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   fallback.
 - Add ERT tests, byte-compilation checks, checkdoc, CI, README, MIT license,
   and Texinfo documentation.
+
+[Unreleased]: https://github.com/pasunboneleve/typst-watch/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/pasunboneleve/typst-watch/releases/tag/v0.1.0

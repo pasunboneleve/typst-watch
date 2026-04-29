@@ -1,4 +1,5 @@
 \input texinfo
+@comment SPDX-License-Identifier: MIT
 @setfilename typst-watch.info
 @settitle typst-watch
 @documentencoding UTF-8

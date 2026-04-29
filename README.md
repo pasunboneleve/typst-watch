@@ -1,3 +1,6 @@
+[![CI](https://github.com/pasunboneleve/typst-watch/actions/workflows/test.yml/badge.svg)](https://github.com/pasunboneleve/typst-watch/actions/workflows/test.yml)
+[![melpazoid](https://github.com/pasunboneleve/typst-watch/actions/workflows/melpazoid.yml/badge.svg)](https://github.com/pasunboneleve/typst-watch/actions/workflows/melpazoid.yml)
+
 # typst-watch
 
 `typst-watch` is an Emacs minor mode for Typst projects.  It starts one
